@@ -179,50 +179,57 @@ param(
             $SingleSubnet = Get-AzVirtualNetworkSubnetConfig -VirtualNetwork $Vnet -Name $SubnetName
         }
         else {
-            Write-Host -ForegroundColor Green "Creating vNET and Subnet"
-            $SingleSubnet = New-AzVirtualNetworkSubnetConfig -Name $SubnetName -AddressPrefix $SubnetAddressPrefix
-            $Vnet = New-AzVirtualNetwork -Name $NetworkName -ResourceGroupName $ResourceGroupName -Location $region -AddressPrefix $VnetAddressPrefix -Subnet $SingleSubnet
+            Write-Host -ForegroundColor Green "Creating vNETs, Subnets and NSGs"
+            foreach ($r in $regionInfo) {
+                $rule1 = New-AzNetworkSecurityRuleConfig -Name ssh-rule -Description "Allow SSH" -Access Allow -Direction Inbound -Protocol Tcp -Priority 100 -SourcePortRange * -SourceAddressPrefix * -DestinationAddressPrefix * -DestinationPortRange 22
+                Write-Host -ForegroundColor Green "Creating NSG $($r.nsgName) in $($r.regionLocation)" 
+                $nsg = New-AzNetworkSecurityGroup -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -Name $r.nsgName -SecurityRules $rule1
+                $Subnet = New-AzVirtualNetworkSubnetConfig -Name $SubnetName -AddressPrefix $r.SubnetAddressPrefix -NetworkSecurityGroup $nsg
+                Write-Host -ForegroundColor Green "Creating vNet $($r.NetworkName) in $($r.regionLocation)"
+                $Vnet = New-AzVirtualNetwork -Name $r.NetworkName -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -AddressPrefix $r.VnetAddressPrefix -Subnet $Subnet
+            }
         }
 
-        # create NSG
-        Write-Host -ForegroundColor Green "Creating NSG"
-        $rule1 = New-AzNetworkSecurityRuleConfig -Name ssh-rule -Description "Allow SSH" -Access Allow -Direction Inbound -Protocol Tcp -Priority 100 -SourcePortRange * -SourceAddressPrefix * -DestinationAddressPrefix * -DestinationPortRange 22
-        $nsg = New-AzNetworkSecurityGroup -ResourceGroupName $ResourceGroupName -Location $region -Name $NSGName -SecurityRules $rule1
-
-    
-        # create VMs
+        # create VM
         Write-Host -ForegroundColor Green "Creating VMs"
-        For ($zone=1; $zone -le $zones; $zone++) {
-
-            $ComputerName = $VMPrefix + $zone
+        foreach ($r in $regionInfo) {
+            $ComputerName = $VMPrefix + $r.regionCount
             $NICName = $ComputerName + $NICPostfix
        	    $PIPName = $NICName + $pippostfix
-	        $Subnet = Get-AzVirtualNetworkSubnetConfig -Name $SubnetName -VirtualNetwork $Vnet
-    	    if ($UsePublicIPAddresses) {
-                $PIP = New-AzPublicIpAddress -Name $PIPName -ResourceGroupName $ResourceGroupName -Location $region -Sku Standard -AllocationMethod Static -IpAddressVersion IPv4 -Zone $zone
+            $vnet = Get-AzVirtualNetwork -Name $r.NetworkName -ResourceGroupName $ResourceGroupName
+            $Subnet = Get-AzVirtualNetworkSubnetConfig -Name $SubnetName -VirtualNetwork $vnet
+            if ($UsePublicIPAddresses) {
+                $PIP = New-AzPublicIpAddress -Name $PIPName -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -Sku Standard -AllocationMethod Static -IpAddressVersion IPv4
 	            $IPConfig1 = New-AzNetworkInterfaceIpConfig -Name "IPConfig-1" -Subnet $Subnet -PublicIpAddress $PIP -Primary
             }
             else {
                 $IPConfig1 = New-AzNetworkInterfaceIpConfig -Name "IPConfig-1" -Subnet $Subnet -Primary
             }
-    	    $NIC = New-AzNetworkInterface -Name $NicName -ResourceGroupName $ResourceGroupName -Location $region -IpConfiguration $IpConfig1 -EnableAcceleratedNetworking -NetworkSecurityGroup $nsg
-	        $VirtualMachine = New-AzVMConfig -VMName $ComputerName -VMSize $VMSize
+            Write-Host -ForegroundColor Green "Creating NIC $NicName in $($r.regionLocation)"
+            $NIC = New-AzNetworkInterface -Name $NicName -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -IpConfiguration $IpConfig1 -EnableAcceleratedNetworking
+            Write-Host -ForegroundColor Green "Creating VM $ComputerName in $($r.regionLocation)"
+            
+            $VirtualMachine = New-AzVMConfig -VMName $ComputerName -VMSize $VMSize
             $VirtualMachine = Set-AzVMOperatingSystem -VM $VirtualMachine -Linux -ComputerName $ComputerName -Credential $Credential
             $VirtualMachine = Add-AzVMNetworkInterface -VM $VirtualMachine -Id $NIC.Id
             $VirtualMachine = Set-AzVMSourceImage -VM $VirtualMachine -PublisherName $OSPublisher -Offer $OSOffer -Skus $OSSku -Version $OSVersion
-            $vm = New-AzVM -ResourceGroupName $ResourceGroupName -Location $region -VM $VirtualMachine -zone $zone -Verbose -AsJob
-                
+            $VirtualMachine = Set-AzVMBootDiagnostic  -VM $VirtualMachine -Disable
+            $vm = New-AzVM -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -VM $VirtualMachine -Verbose -AsJob
         }
 
-	    # waiting for VM creation jobs to finish
-        "All jobs created, waiting ..."
+        # waiting for VM creation jobs to finish
+        Write-Host -ForegroundColor Green "All VM creation jobs started, waiting to complete"
         Get-Job | Wait-Job
-	    "All jobs completed"
-	    Get-AzVM -ResourceGroupName $ResourceGroupName
+        Write-Host -ForegroundColor Green "All jobs completed"
+        Get-AzVM -ResourceGroupName $ResourceGroupName
 
-        # adding some time as it sometimes helps :-)
-        "Waiting for three minute for all systems to come up ..."
-        Start-Sleep -Seconds 180
+        # hold time for VMs to be fully ready
+        Write-Host -ForegroundColor Green "Holding for two minute for all VMs to come up ."
+        Start-Sleep -Seconds 60
+        Write-Host -ForegroundColor Green "60 seconds remaining"
+        Start-Sleep -Seconds 60
+        Write-Host -ForegroundColor Green "Two minute hold for all VMs to come up complete"
+       
     }
 
     # creating SSH sessions to VMs

@@ -57,10 +57,14 @@ Licensed under the MIT license.
 param(
     #Azure Subscription Name
     [Parameter(Mandatory=$true)][string]$SubscriptionName,
-    #Azure Region, use Get-AzLocation to get region names
-    [string]$region = "westeurope", 
+    #Azure Region 1, use Get-AzLocation to get region names
+    [Parameter(Mandatory=$true)][string]$region1 = "centralus", 
+    #Azure Region 2, use Get-AzLocation to get region names
+    [Parameter(Mandatory=$true)][string]$region2 = "eastus", 
+    #Azure Region 3, use Get-AzLocation to get region names
+    [Parameter(Mandatory=$true)][string]$region3 = "westus",  
     #Resource Group Name that will be created
-    [string]$ResourceGroupName = "AvZoneLatencyTest", 
+    [string]$ResourceGroupName = "AzRegionLatencyTest", 
     #Delete the test environment after test
     [boolean]$DestroyAfterTest = $true, 
     #Use an existing VNET, direct SSH connection to VMs required
@@ -92,7 +96,7 @@ param(
     #Azure Network Security Group (NSG) name
     [string]$NSGName = "azping-nsg", 
     #Azure VNET name, if using existing VNET
-    [string]$NetworkName = "azping-mgmt-vnet", 
+    [string]$NetworkName = "azping-vnet", 
     #Azure Subnet name, if using exising
     [string]$SubnetName = "default", 
     #Resource Group Name of existing VNET
@@ -113,7 +117,6 @@ param(
         }
            
     }
-
 
 	# select subscription
 	$Subscription = Get-AzSubscription -SubscriptionName $SubscriptionName
@@ -144,7 +147,21 @@ param(
         }
     }
 
-    
+    #create information object
+    $regionParams = @($region1, $region2, $region3)
+    $regionInfo = @()
+    for ($y=1; $y -le 3; $y++) {
+        $newObject = New-Object -TypeName PSObject -Property @{
+            regionCount = $y
+            regionLocation = $regionParams[$y-1]
+            nsgName = $NSGName+"-"+$y
+            SubnetAddressPrefix = "10.1.$y.0/24"
+            VnetAddressPrefix = "10.1.$y.0/24"
+            NetworkName = $NetworkName+"-"+$y
+        }
+        $regionInfo += $newObject
+    }
+
 
     if ($UseExistingVMs) {
         Write-Host "Using existing VMs" -ForegroundColor Green

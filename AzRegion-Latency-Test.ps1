@@ -1,51 +1,50 @@
 <#
 
 .SYNOPSIS
-    Creates VMs and tests latency between VMs
+    Creates VMs and tests latency between the VMs in differnet Azure locations
 
 .DESCRIPTION
-    The script creates VMs in Zone 1, 2 and 3, installing qperf on it and testing latency between VMs
+    The script creates VMs in specified Regions 1, 2 and 3, installing qperf and testing latency between the created VMs
 
 .PARAMETER Region
     The Azure region name
 
 .EXAMPLE
-    ./AvZone-Latency-Test.ps1 -Region westeurope
+    ./AzRegion-Latency-Test.ps1 -Region1 centralus -Region2 eastus -Region3 westus
 
     Example output:
 
-        Region:  westeurope
+        Region1:  centralus
+        Region2:  eastus
+        Region3:  westus
         VM Type:  Standard_E8s_v3
         Latency:
                  ----------------------------------------------
-                 |    zone 1    |    zone 2    |    zone 3    |
+                 |   Region 1   |   Region 2   |   Region 3   |
         -------------------------------------------------------
-        | zone 1 |              |        xx us |        xx us |
-        | zone 2 |        xx us |              |        xx us |
-        | zone 3 |        xx us |        xx us |              |
+        |Region 1|              |        xx us |        xx us |
+        |Region 2|        xx us |              |        xx us |
+        |Region 3|        xx us |        xx us |              |
         -------------------------------------------------------
 
         Bandwidth:
                  ----------------------------------------------
-                 |    zone 1    |    zone 2    |    zone 3    |
+                 |   Region 1   |   Region 2   |   Region 3   |
         -------------------------------------------------------
-        | zone 1 |              |   xxx MB/sec |   xxx MB/sec |
-        | zone 2 |   xxx MB/sec |              |   xxx MB/sec |
-        | zone 3 |   xxx MB/sec |   xxx MB/sec |              |
+        |Region 1|              |   xxx MB/sec |   xxx MB/sec |
+        |Region 2|   xxx MB/sec |              |   xxx MB/sec |
+        |Region 3|   xxx MB/sec |   xxx MB/sec |              |
         -------------------------------------------------------
 
 .LINK
-    https://github.com/Azure/SAP-on-Azure-Scripts-and-Utilities
+
 
 .NOTES
-    v0.1 - Initial version
-    v0.2 - adding usage of existing VNET
-    v0.3 - switching from variables to parameters
-         - adding documentation
-         - adding logon check
 
 #>
 <#
+Original concept and code by: AvZone-Latency-Test.ps1
+https://github.com/Azure/SAP-on-Azure-Scripts-and-Utilities
 Copyright (c) Microsoft Corporation.
 Licensed under the MIT license.
 #>

@@ -153,8 +153,8 @@ param(
     else {
 
         # create resource group
-        Write-Host -ForegroundColor Green "Creating resource group"
-        $ResourceGroup = New-AzResourceGroup -Location $region -Name $ResourceGroupName
+        Write-Host -ForegroundColor Green "Creating resource group $ResourceGroupName"
+        $ResourceGroup = New-AzResourceGroup -Location $region1 -Name $ResourceGroupName
     
         # create vNET and Subnet or getting existing
 	    if ($UseExistingVnet) {

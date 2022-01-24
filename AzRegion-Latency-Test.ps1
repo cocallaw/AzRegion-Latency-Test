@@ -183,7 +183,7 @@ param(
                 $rule1 = New-AzNetworkSecurityRuleConfig -Name ssh-rule -Description "Allow SSH" -Access Allow -Direction Inbound -Protocol Tcp -Priority 100 -SourcePortRange * -SourceAddressPrefix * -DestinationAddressPrefix * -DestinationPortRange 22
                 Write-Host -ForegroundColor Green "Creating NSG $($r.nsgName) in $($r.regionLocation)" 
                 $nsg = New-AzNetworkSecurityGroup -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -Name $r.nsgName -SecurityRules $rule1
-                $Subnet = New-AzVirtualNetworkSubnetConfig -Name $SubnetName -AddressPrefix $r.SubnetAddressPrefix -NetworkSecurityGroup $nsg
+                $Subnet = New-AzVirtualNetworkSubnetConfig -Name $SubnetName -AddressPrefix $r.SubnetAddressPrefix
                 Write-Host -ForegroundColor Green "Creating vNet $($r.NetworkName) in $($r.regionLocation)"
                 $Vnet = New-AzVirtualNetwork -Name $r.NetworkName -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -AddressPrefix $r.VnetAddressPrefix -Subnet $Subnet
             }
@@ -238,7 +238,7 @@ param(
                 $IPConfig1 = New-AzNetworkInterfaceIpConfig -Name "IPConfig-1" -Subnet $Subnet -Primary
             }
             Write-Host -ForegroundColor Green "Creating NIC $NicName in $($r.regionLocation)"
-            $NIC = New-AzNetworkInterface -Name $NicName -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -IpConfiguration $IpConfig1 -EnableAcceleratedNetworking
+            $NIC = New-AzNetworkInterface -Name $NicName -ResourceGroupName $ResourceGroupName -Location $r.regionLocation -IpConfiguration $IpConfig1 -NetworkSecurityGroupId $(Get-AzNetworkSecurityGroup -Name $r.nsgName -ResourceGroupName $ResourceGroupName).Id -EnableAcceleratedNetworking 
             Write-Host -ForegroundColor Green "Creating VM $ComputerName in $($r.regionLocation)"
             
             $VirtualMachine = New-AzVMConfig -VMName $ComputerName -VMSize $VMSize

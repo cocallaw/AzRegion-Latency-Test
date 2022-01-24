@@ -129,18 +129,17 @@ param(
     Select-AzSubscription -Subscription $SubscriptionName -Force
 
     $VMLocalAdminSecurePassword = ConvertTo-SecureString $VMLocalAdminPassword -AsPlainText -Force
-
-    $zones = 3
-
     
     #create the secure credential object
 	$Credential = New-Object System.Management.Automation.PSCredential ($VMLocalAdminUser, $VMLocalAdminSecurePassword);
+
+    $regions = 3
 
     # initialize the arrays for outputs
     $latency = @(("","",""),("","",""),("","",""))
     $bandwidth = @(("","",""),("","",""),("","",""))
 
-    for ($x=1; $x -le $zones; $x++) {
+    for ($x=1; $x -le $regions; $x++) {
         for ($y=1; $y -le 3; $y++) {
             $latency[$x-1][$y-1] = "0"
             $bandwidth[$x-1][$y-1] = "0"
@@ -270,13 +269,13 @@ param(
     Get-SSHTrustedHost | Remove-SSHTrustedHost
 
     Write-Host -ForegroundColor Green "Creating SSH sessions"
-    For ($zone=1; $zone -le $zones; $zone++) {
-        $ComputerName = $VMPrefix + $zone
-        $pipname = $VMPrefix + $zone + $NICPostfix + $pippostfix 
+    For ($region=1; $region -le $regions; $region++) {
+        $ComputerName = $VMPrefix + $region
+        $pipname = $VMPrefix + $region + $NICPostfix + $pippostfix 
         $NICName = $ComputerName + $NICPostfix
 
         if ($UsePublicIPAddresses) {
-			$pipname = $VMPrefix + $zone + $NICPostfix + $pippostfix 
+			$pipname = $VMPrefix + $region + $NICPostfix + $pippostfix 
 			$PIP = Get-AzPublicIpAddress -Name $pipname
 			$ipaddress = $PIP.IpAddress
         }
@@ -289,13 +288,14 @@ param(
     }
 
     $sshsessions = Get-SSHSession
+    Write-Host -ForegroundColor Green "SSH sessions created"
 
 
     Write-Host -ForegroundColor Green "Getting Hosts for virtual machines"
-    For ($zone=1; $zone -le $zones; $zone++) {
+    For ($region=1; $region -le $regions; $region++) { 
 
-        $output = Invoke-SSHCommand -Command "cat /var/lib/hyperv/.kvp_pool_3 | sed 's/[^a-zA-Z0-9]//g' | grep -o -P '(?<=HostName).*(?=HostingSystemEditionId)'" -SessionId $sshsessions[$zone-1].SessionId
-        Write-Host ("VM$zone : " + $output.Output)
+        $output = Invoke-SSHCommand -Command "cat /var/lib/hyperv/.kvp_pool_3 | sed 's/[^a-zA-Z0-9]//g' | grep -o -P '(?<=HostName).*(?=HostingSystemEditionId)'" -SessionId $sshsessions[$region-1].SessionId
+        Write-Host ("VM$region : " + $output.Output)
 
     }
 
@@ -304,45 +304,45 @@ param(
     if ($testtool -eq "qperf") {
         # install qperf on all VMs
         Write-Host -ForegroundColor Green "Installing qperf on all VMs"
-        For ($zone=1; $zone -le $zones; $zone++) {
+        For ($region=1; $region -le $regions; $region++) {
 
-            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | sudo -S yum -y install qperf" -SessionId $sshsessions[$zone-1].SessionId
-            $output = Invoke-SSHCommand -Command "nohup qperf &" -SessionId $sshsessions[$zone-1].SessionId -TimeOut 3 -ErrorAction silentlycontinue
+            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | sudo -S yum -y install qperf" -SessionId $sshsessions[$region].SessionId
+            $output = Invoke-SSHCommand -Command "nohup qperf &" -SessionId $sshsessions[$region].SessionId -TimeOut 3 -ErrorAction silentlycontinue
 
         }
 
         # run performance tests
         Write-Host -ForegroundColor Green "Running bandwidth and latency tests"
-        For ($zone=1; $zone -le $zones; $zone++) {
+        For ($region=1; $region -le $regions; $region++) {
 
-            $vmtopingno1 = (( $zone   %3)+1)
-            $vmtoping1 = $VMPrefix + (( $zone   %3)+1)
-            $vmtopingno2 = ((($zone+1)%3)+1)
-            $vmtoping2 = $VMPrefix + ((($zone+1)%3)+1)
+            $vmtopingno1 = (( $region   %3)+1)
+            $vmtoping1 = $VMPrefix + (( $region   %3)+1)
+            $vmtopingno2 = ((($region+1)%3)+1)
+            $vmtoping2 = $VMPrefix + ((($region+1)%3)+1)
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping1 tcp_lat" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping1 tcp_lat" -SessionId $sshsessions[$region-1].SessionId
             $latencytemp = [string]$output.Output[1]
             $latencytemp = $latencytemp.substring($latencytemp.IndexOf("=")+3)
             $latencytemp = $latencytemp.PadLeft(12)
-            $latency[$zone -1][$vmtopingno1 -1] = $latencytemp
+            $latency[$region -1][$vmtopingno1 -1] = $latencytemp
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping1 tcp_bw" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping1 tcp_bw" -SessionId $sshsessions[$region-1].SessionId
             $bandwidthtemp = [string]$output.Output[1]
             $bandwidthtemp = $bandwidthtemp.substring($bandwidthtemp.IndexOf("=")+3)
             $bandwidthtemp = $bandwidthtemp.PadLeft(12)
-            $bandwidth[$zone -1][$vmtopingno1 -1] = $bandwidthtemp
+            $bandwidth[$region -1][$vmtopingno1 -1] = $bandwidthtemp
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping2 tcp_lat" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping2 tcp_lat" -SessionId $sshsessions[$region-1].SessionId
             $latencytemp = [string]$output.Output[1]
             $latencytemp = $latencytemp.substring($latencytemp.IndexOf("=")+3)
             $latencytemp = $latencytemp.PadLeft(12)
-            $latency[$zone -1][$vmtopingno2 -1] = $latencytemp
+            $latency[$region -1][$vmtopingno2 -1] = $latencytemp
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping2 tcp_bw" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping2 tcp_bw" -SessionId $sshsessions[$region-1].SessionId
             $bandwidthtemp = [string]$output.Output[1]
             $bandwidthtemp = $bandwidthtemp.substring($bandwidthtemp.IndexOf("=")+3)
             $bandwidthtemp = $bandwidthtemp.PadLeft(12)
-            $bandwidth[$zone -1][$vmtopingno2 -1] = $bandwidthtemp
+            $bandwidth[$region -1][$vmtopingno2 -1] = $bandwidthtemp
 
         }
     }
@@ -351,83 +351,85 @@ param(
 
         # download niping on all hosts and run niping server
         Write-Host -ForegroundColor Green "Installing niping on all VMs"
-        For ($zone=1; $zone -le $zones; $zone++) {
+        For ($region=1; $region -le $regions; $region++) {
 
-            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | wget $nipingpath -O /tmp/niping" -SessionId $sshsessions[$zone-1].SessionId
-            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | chmod +x /tmp/niping" -SessionId $sshsessions[$zone-1].SessionId
-            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | nohup /tmp/niping -s -I 0 &" -SessionId $sshsessions[$zone-1].SessionId -TimeOut 3 -ErrorAction silentlycontinue
+            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | wget $nipingpath -O /tmp/niping" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | chmod +x /tmp/niping" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | nohup /tmp/niping -s -I 0 &" -SessionId $sshsessions[$region-1].SessionId -TimeOut 3 -ErrorAction silentlycontinue
 
         }
 
         # run performance tests
         Write-Host -ForegroundColor Green "Running bandwidth and latency tests"
-        For ($zone=1; $zone -le $zones; $zone++) {
+        For ($region=1; $region -le $regions; $region++) {
 
-            $vmtopingno1 = (( $zone   %3)+1)
-            $vmtoping1 = $VMPrefix + (( $zone   %3)+1)
-            $vmtopingno2 = ((($zone+1)%3)+1)
-            $vmtoping2 = $VMPrefix + ((($zone+1)%3)+1)
+            $vmtopingno1 = (( $region   %3)+1)
+            $vmtoping1 = $VMPrefix + (( $region   %3)+1)
+            $vmtopingno2 = ((($region+1)%3)+1)
+            $vmtoping2 = $VMPrefix + ((($region+1)%3)+1)
 
-            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 10 -L 100 -H $vmtoping1 | grep av2" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 10 -L 100 -H $vmtoping1 | grep av2" -SessionId $sshsessions[$region-1].SessionId
             $latencytemp = [string]$output.Output
             $latencytemp = $latencytemp -replace '\s+', ' '
             $latencytemp = $latencytemp.Split(" ")
             $latencytemp = [string]$latencytemp[1] + " " + $latencytemp[2]
             $latencytemp = $latencytemp.PadLeft(12)
-            $latency[$zone -1][$vmtopingno1 -1] = $latencytemp
+            $latency[$region -1][$vmtopingno1 -1] = $latencytemp
 
-            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 100000 -L 100 -H $vmtoping1 | grep tr2" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 100000 -L 100 -H $vmtoping1 | grep tr2" -SessionId $sshsessions[$region-1].SessionId
             $bandwidthtemp = [string]$output.Output
             $bandwidthtemp = $bandwidthtemp -replace '\s+', ' '
             $bandwidthtemp = $bandwidthtemp.Split(" .")
             $bandwidthtemp = [int]$bandwidthtemp[1] / 1024
             $bandwidthtemp = [string]([math]::ceiling($bandwidthtemp)) + " MB/s"
             $bandwidthtemp = $bandwidthtemp.PadLeft(12)
-            $bandwidth[$zone -1][$vmtopingno1 -1] = $bandwidthtemp
+            $bandwidth[$region -1][$vmtopingno1 -1] = $bandwidthtemp
 
-            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 10 -L 100 -H $vmtoping2 | grep av2" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 10 -L 100 -H $vmtoping2 | grep av2" -SessionId $sshsessions[$region-1].SessionId
             $latencytemp = [string]$output.Output
             $latencytemp = $latencytemp -replace '\s+', ' '
             $latencytemp = $latencytemp.Split(" ")
             $latencytemp = [string]$latencytemp[1] + " " + $latencytemp[2]
             $latencytemp = $latencytemp.PadLeft(12)
-            $latency[$zone -1][$vmtopingno2 -1] = $latencytemp
+            $latency[$region -1][$vmtopingno2 -1] = $latencytemp
 
-            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 100000 -L 100 -H $vmtoping2 | grep tr2" -SessionId $sshsessions[$zone-1].SessionId
+            $output = Invoke-SSHCommand -Command "/tmp/niping -c -B 100000 -L 100 -H $vmtoping2 | grep tr2" -SessionId $sshsessions[$region-1].SessionId
             $bandwidthtemp = [string]$output.Output
             $bandwidthtemp = $bandwidthtemp -replace '\s+', ' '
             $bandwidthtemp = $bandwidthtemp.Split(" .")
             $bandwidthtemp = [int]$bandwidthtemp[1] / 1024
             $bandwidthtemp = [string]([math]::ceiling($bandwidthtemp)) + " MB/s"
             $bandwidthtemp = $bandwidthtemp.PadLeft(12)
-            $bandwidth[$zone -1][$vmtopingno2 -1] = $bandwidthtemp
+            $bandwidth[$region -1][$vmtopingno2 -1] = $bandwidthtemp
 
         }
     }
     
     # Print output
-    Write-Host "Region: " $region
+    Write-Host "Region1: " $regionInfo[2].regionLocation
+    Write-Host "Region2: " $regionInfo[2].regionLocation
+    Write-Host "Region3: " $regionInfo[2].regionLocation
     Write-Host "VM Type: " $VMSize
 
     Write-Host "Latency:"
 
     Write-Host "         ----------------------------------------------"
-    Write-Host "         |    zone 1    |    zone 2    |    zone 3    |"
+    Write-Host "         |   region 1   |   region 2   |   region 3   |"
     Write-Host "-------------------------------------------------------"
-    Write-Host "| zone 1 |              |" $latency[0][1] "|" $latency[0][2] "|"
-    Write-Host "| zone 2 |" $latency[1][0] "|              |" $latency[1][2] "|"
-    Write-Host "| zone 3 |" $latency[2][0] "|" $latency[2][1] "|              |"
+    Write-Host "|region 1|              |" $latency[0][1] "|" $latency[0][2] "|"
+    Write-Host "|region 2|" $latency[1][0] "|              |" $latency[1][2] "|"
+    Write-Host "|region 3|" $latency[2][0] "|" $latency[2][1] "|              |"
     Write-Host "-------------------------------------------------------"
 
     Write-Host ""
     Write-Host "Bandwidth:"
 
     Write-Host "         ----------------------------------------------"
-    Write-Host "         |    zone 1    |    zone 2    |    zone 3    |"
+    Write-Host "         |   region 1   |   region 2   |   region 3   |"
     Write-Host "-------------------------------------------------------"
-    Write-Host "| zone 1 |              |" $bandwidth[0][1] "|" $bandwidth[0][2] "|"
-    Write-Host "| zone 2 |" $bandwidth[1][0] "|              |" $bandwidth[1][2] "|"
-    Write-Host "| zone 3 |" $bandwidth[2][0] "|" $bandwidth[2][1] "|              |"
+    Write-Host "|region 1|              |" $bandwidth[0][1] "|" $bandwidth[0][2] "|"
+    Write-Host "|region 2|" $bandwidth[1][0] "|              |" $bandwidth[1][2] "|"
+    Write-Host "|region 3|" $bandwidth[2][0] "|" $bandwidth[2][1] "|              |"
     Write-Host "-------------------------------------------------------"
 
 

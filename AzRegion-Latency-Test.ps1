@@ -190,6 +190,39 @@ param(
             }
         }
 
+        # create vNet peering
+        if ($UseExistingVnet) {
+            Write-Host -ForegroundColor Green "Verifying existing vNet peerings"
+            $missingpeers = $false
+            foreach ($r in $regionInfo) {
+                $peerings = Get-AzVirtualNetworkPeering -VirtualNetwork $r.NetworkName -ResourceGroupName $ResourceGroupName
+                if ($peerings.Count -ge 2) {
+                    Write-Host -ForegroundColor Green "Existing vNet peerings found on $($r.NetworkName)"
+                }
+                else {
+                    Write-Host -ForegroundColor Green "Incorrcet vNet peerings found on $($r.NetworkName)"
+                    $missingpeers = $true
+                }
+            }
+            if ($missingpeers) {
+                Write-Host -ForegroundColor Red "Incorrect vNet peerings found, please create manually or recreate the Resource Group using this script"
+                exit
+            }
+        }
+        else {
+            Write-Host -ForegroundColor Green "Creating vNet peering"
+            Write-Host -ForegroundColor Green "Peering $($regionInfo[0].NetworkName) in $($regionInfo[0].regionLocation) with $($regionInfo[1].NetworkName) in $($regionInfo[1].regionLocation)"
+            Add-AzVirtualNetworkPeering -Name vnetregion1-vnetregion2 -VirtualNetwork $(Get-AzVirtualNetwork -Name $regionInfo[0].NetworkName -ResourceGroupName $ResourceGroupName) -RemoteVirtualNetworkId $(Get-AzVirtualNetwork -Name $regionInfo[1].NetworkName -ResourceGroupName $ResourceGroupName).Id
+            Add-AzVirtualNetworkPeering -Name vnetregion2-vnetregion1 -VirtualNetwork $(Get-AzVirtualNetwork -Name $regionInfo[1].NetworkName -ResourceGroupName $ResourceGroupName) -RemoteVirtualNetworkId $(Get-AzVirtualNetwork -Name $regionInfo[0].NetworkName -ResourceGroupName $ResourceGroupName).Id
+            Write-Host -ForegroundColor Green "Peering $($regionInfo[1].NetworkName) in $($regionInfo[1].regionLocation) with $($regionInfo[2].NetworkName) in $($regionInfo[2].regionLocation)"
+            Add-AzVirtualNetworkPeering -Name vnetregion2-vnetregion3 -VirtualNetwork $(Get-AzVirtualNetwork -Name $regionInfo[1].NetworkName -ResourceGroupName $ResourceGroupName) -RemoteVirtualNetworkId $(Get-AzVirtualNetwork -Name $regionInfo[2].NetworkName -ResourceGroupName $ResourceGroupName).Id
+            Add-AzVirtualNetworkPeering -Name vnetregion3-vnetregion2 -VirtualNetwork $(Get-AzVirtualNetwork -Name $regionInfo[2].NetworkName -ResourceGroupName $ResourceGroupName) -RemoteVirtualNetworkId $(Get-AzVirtualNetwork -Name $regionInfo[1].NetworkName -ResourceGroupName $ResourceGroupName).Id
+            Write-Host -ForegroundColor Green "Peering $($regionInfo[2].NetworkName) in $($regionInfo[2].regionLocation) with $($regionInfo[0].NetworkName) in $($regionInfo[0].regionLocation)"
+            Add-AzVirtualNetworkPeering -Name vnetregion3-vnetregion1 -VirtualNetwork $(Get-AzVirtualNetwork -Name $regionInfo[2].NetworkName -ResourceGroupName $ResourceGroupName) -RemoteVirtualNetworkId $(Get-AzVirtualNetwork -Name $regionInfo[0].NetworkName -ResourceGroupName $ResourceGroupName).Id
+            Add-AzVirtualNetworkPeering -Name vnetregion1-vnetregion3 -VirtualNetwork $(Get-AzVirtualNetwork -Name $regionInfo[0].NetworkName -ResourceGroupName $ResourceGroupName) -RemoteVirtualNetworkId $(Get-AzVirtualNetwork -Name $regionInfo[2].NetworkName -ResourceGroupName $ResourceGroupName).Id
+        }
+        
+
         # create VM
         Write-Host -ForegroundColor Green "Creating VMs"
         foreach ($r in $regionInfo) {

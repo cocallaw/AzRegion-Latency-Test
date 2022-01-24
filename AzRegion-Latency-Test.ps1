@@ -306,8 +306,8 @@ param(
         Write-Host -ForegroundColor Green "Installing qperf on all VMs"
         For ($region=1; $region -le $regions; $region++) {
 
-            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | sudo -S yum -y install qperf" -SessionId $sshsessions[$region].SessionId
-            $output = Invoke-SSHCommand -Command "nohup qperf &" -SessionId $sshsessions[$region].SessionId -TimeOut 3 -ErrorAction silentlycontinue
+            $output = Invoke-SSHCommand -Command "echo $VMLocalAdminPassword | sudo -S yum -y install qperf" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "nohup qperf &" -SessionId $sshsessions[$region-1].SessionId -TimeOut 3 -ErrorAction silentlycontinue
 
         }
 
@@ -317,28 +317,30 @@ param(
 
             $vmtopingno1 = (( $region   %3)+1)
             $vmtoping1 = $VMPrefix + (( $region   %3)+1)
+            $vmtoping1IP = Get-LocalIP $vmtoping1
             $vmtopingno2 = ((($region+1)%3)+1)
             $vmtoping2 = $VMPrefix + ((($region+1)%3)+1)
+            $vmtoping2IP = Get-LocalIP $vmtoping2
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping1 tcp_lat" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping1IP tcp_lat" -SessionId $sshsessions[$region-1].SessionId
             $latencytemp = [string]$output.Output[1]
             $latencytemp = $latencytemp.substring($latencytemp.IndexOf("=")+3)
             $latencytemp = $latencytemp.PadLeft(12)
             $latency[$region -1][$vmtopingno1 -1] = $latencytemp
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping1 tcp_bw" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping1IP tcp_bw" -SessionId $sshsessions[$region-1].SessionId
             $bandwidthtemp = [string]$output.Output[1]
             $bandwidthtemp = $bandwidthtemp.substring($bandwidthtemp.IndexOf("=")+3)
             $bandwidthtemp = $bandwidthtemp.PadLeft(12)
             $bandwidth[$region -1][$vmtopingno1 -1] = $bandwidthtemp
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping2 tcp_lat" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping2IP tcp_lat" -SessionId $sshsessions[$region-1].SessionId
             $latencytemp = [string]$output.Output[1]
             $latencytemp = $latencytemp.substring($latencytemp.IndexOf("=")+3)
             $latencytemp = $latencytemp.PadLeft(12)
             $latency[$region -1][$vmtopingno2 -1] = $latencytemp
 
-            $output = Invoke-SSHCommand -Command "qperf $vmtoping2 tcp_bw" -SessionId $sshsessions[$region-1].SessionId
+            $output = Invoke-SSHCommand -Command "qperf $vmtoping2IP tcp_bw" -SessionId $sshsessions[$region-1].SessionId
             $bandwidthtemp = [string]$output.Output[1]
             $bandwidthtemp = $bandwidthtemp.substring($bandwidthtemp.IndexOf("=")+3)
             $bandwidthtemp = $bandwidthtemp.PadLeft(12)
@@ -406,8 +408,8 @@ param(
     }
     
     # Print output
-    Write-Host "Region1: " $regionInfo[2].regionLocation
-    Write-Host "Region2: " $regionInfo[2].regionLocation
+    Write-Host "Region1: " $regionInfo[0].regionLocation
+    Write-Host "Region2: " $regionInfo[1].regionLocation
     Write-Host "Region3: " $regionInfo[2].regionLocation
     Write-Host "VM Type: " $VMSize
 

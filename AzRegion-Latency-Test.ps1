@@ -74,7 +74,7 @@ param(
     #use public IP addresses to connect
     [boolean]$UsePublicIPAddresses = $true, 
     # VM type, recommended Standard_D8s_v3
-    [string]$VMSize = "Standard_D8s_v3", 
+    [string]$VMSize = "Standard_F4s_v2", 
     #OS provider, for CentOS it is OpenLogic
     [string]$OSPublisher = "OpenLogic", 
     #OS Type
@@ -166,7 +166,6 @@ param(
         Write-Host "Using existing VMs" -ForegroundColor Green
     }
     else {
-
         # create resource group
         Write-Host -ForegroundColor Green "Creating resource group $ResourceGroupName"
         $ResourceGroup = New-AzResourceGroup -Location $region1 -Name $ResourceGroupName
@@ -256,16 +255,42 @@ param(
         Get-AzVM -ResourceGroupName $ResourceGroupName
 
         # hold time for VMs to be fully ready
-        Write-Host -ForegroundColor Green "Holding for two minute for all VMs to come up ."
+        Write-Host -ForegroundColor Green "Holding for 2 minutes for all VMs to come up"
         Start-Sleep -Seconds 60
-        Write-Host -ForegroundColor Green "60 seconds remaining"
+        Write-Host -ForegroundColor Green "1 minute remaining"
         Start-Sleep -Seconds 60
-        Write-Host -ForegroundColor Green "Two minute hold for all VMs to come up complete"
-       
+        Write-Host -ForegroundColor Green "2 minute hold for all VMs to come up complete"
+    }
+
+    # collect VM local IP addresses
+    Write-Host -ForegroundColor Green "Getting VM local IP addresses"
+    $localIPInfo = @()
+    foreach ($r in $regionInfo) {
+
+        $ComputerName = $VMPrefix + $r.regionCount
+        $NICName = $ComputerName + $NICPostfix
+        $nicInfo = Get-AzNetworkInterface -Name $NICName -ResourceGroupName $ResourceGroupName
+
+        $newObject = New-Object -TypeName PSObject -Property @{
+            regionCount = $r.regionCount
+            nicLocation = $r.regionLocation
+            nicName = $NICName
+            vmName = $ComputerName
+            nicPrivateIp = $nicInfo.IpConfigurations[0].PrivateIpAddress
+        }
+        $localIPInfo += $newObject
+
+    }
+
+    Function Get-LocalIP($x) {
+        foreach ($i in $localIPInfo) {
+            if ($i.vmName -eq $x) {
+                return $i.nicPrivateIp
+            }
+        }
     }
 
     # creating SSH sessions to VMs
-
     Get-SSHTrustedHost | Remove-SSHTrustedHost
 
     Write-Host -ForegroundColor Green "Creating SSH sessions"
@@ -285,6 +310,7 @@ param(
             $ipaddress = $networkinterfaceconfig.PrivateIpAddress
         }
         $sshsession = New-SSHSession -ComputerName $ipaddress -Credential $Credential -AcceptKey -Force
+
     }
 
     $sshsessions = Get-SSHSession

@@ -51,8 +51,8 @@ Licensed under the MIT license.
 
 #Requires -Modules Posh-SSH
 #Requires -Modules Az.Compute
-#Requires -Version 5.1
-#requires -PSEdition Desktop
+#Requires -Version 7.2
+
 
 param(
     #Azure Subscription Name

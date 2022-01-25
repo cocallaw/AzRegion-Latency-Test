@@ -11,7 +11,7 @@ This script provides a simplified way to test the latency between three Azure re
 * Azure Subscription
 * Core quota assigned to the subscription
 * Ability to connect to the VMs using SSH (Public IP addresses)
-* PowerShell 5.1 or newer
+* PowerShell Core 7.2 or newer
 * PowerShell modules Posh-SSH and Az
 
 ### What the script does

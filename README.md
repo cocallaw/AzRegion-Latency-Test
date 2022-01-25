@@ -6,13 +6,14 @@ Azure consists of multiple regions across the world, latency and bandwidth is im
 
 This script provides a simplified way to test the latency between three Azure regions, using a repeatable process to help you understand the approximate latency between the regions.
 
-**requirements:**
+**Requirements:**
 
 * Azure Subscription
-* Core quota assigned to the subscription
+* Available Core quota assigned to the Azure Subscription
 * Ability to connect to the VMs using SSH (Public IP addresses)
-* PowerShell Core 7.2 or newer
-* PowerShell modules Posh-SSH and Az
+* [PowerShell 7.2](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows?view=powershell-7.2) or newer
+* PowerShell module [Posh-SSH](https://github.com/darkoperator/Posh-SSH)
+* [Azure Az PowerSehell Modules](https://docs.microsoft.com/en-us/powershell/azure/install-az-ps?view=azps-7.1.0) 
 
 ### What the script does
 

@@ -49,10 +49,9 @@ Copyright (c) Microsoft Corporation.
 Licensed under the MIT license.
 #>
 
-#Requires -Modules Posh-SSH
-#Requires -Modules Az.Compute
 #Requires -Version 7.2
-
+#Requires -Modules Az.Compute
+#Requires -Modules @{ ModuleName="Posh-SSH"; ModuleVersion="3.0.0" }
 
 param(
     #Azure Subscription Name
